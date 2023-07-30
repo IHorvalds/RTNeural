@@ -11,6 +11,8 @@
 #include "dense_xsimd.h"
 #elif RTNEURAL_USE_ACCELERATE
 #include "dense_accelerate.h"
+#elif RTNEURAL_USE_RANGES
+#include "dense_ranges.h"
 #else
 #include "../Layer.h"
 

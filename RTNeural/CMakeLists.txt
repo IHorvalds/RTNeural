@@ -19,6 +19,7 @@ add_library(RTNeural STATIC
     dense/dense_accelerate.h
     dense/dense_eigen.h
     dense/dense_xsimd.h
+    dense/dense_ranges.h
     gru/gru.h
     gru/gru.tpp
     gru/gru_accelerate.h
@@ -39,8 +40,7 @@ add_library(RTNeural STATIC
     batchnorm/batchnorm2d_eigen.tpp
     model_loader.h
     RTNeural.h
-    RTNeural.cpp
-)
+    RTNeural.cpp)
 
 set_property(TARGET RTNeural PROPERTY POSITION_INDEPENDENT_CODE ON)
 set_target_properties(RTNeural PROPERTIES LINKER_LANGUAGE CXX)
