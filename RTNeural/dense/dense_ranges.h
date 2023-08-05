@@ -14,7 +14,7 @@
 namespace RTNeural
 {
 
-template <typename Numeric, typename Tuple>
+template <typename Tuple, typename Numeric>
 struct AddMultiply
 {
     constexpr Numeric operator()(Tuple&& t, Numeric&& e)
@@ -40,17 +40,15 @@ public:
         : Layer<T>(in_size, out_size)
     {
         weights.resize(out_size);
-        bias.resize(out_size);
-        inVec.resize(in_size);
-        outVec.resize(out_size);
+        inVec.resize(in_size + 1);
+
+        inVec[in_size] = 1;
 
         for (auto& w : weights)
         {
-            w.resize(in_size);
+            w.resize(in_size + 1); // contains the bias element at the end
             ranges::fill(w, (T)0);
         }
-
-        ranges::fill(bias, (T)0);
     }
 
     Dense(std::initializer_list<int> sizes)
@@ -70,16 +68,17 @@ public:
     /** Performs forward propagation for this layer */
     inline void forward(const T* input, T* output) noexcept override
     {
-        std::span<const T> inputSpan(input, Layer<T>::in_size);
         std::span<T> outputSpan(output, Layer<T>::out_size);
 
-        ranges::transform(ranges::views::zip(weights, ranges::views::repeat(inputSpan), bias), outputSpan.begin(),
-            [](auto els)
+        memcpy(inVec.data(), input, Layer<T>::in_size);
+
+        ranges::transform(weights, outputSpan.begin(),
+            [this](auto w)
             {
                 return ranges::fold_right(
-                    ranges::views::zip(std::get<0>(els), std::get<1>(els)),
-                    std::get<2>(els),
-                    AddMultiply<T, std::tuple<T, T>>{});
+                    ranges::views::zip(w, inVec),
+                    0,
+                    this->addMultiply);
             });
     }
 
@@ -91,7 +90,10 @@ public:
      */
     void setWeights(const std::vector<std::vector<T>>& newWeights)
     {
-        weights = newWeights;
+        for (int i = 0; i < Layer<T>::out_size; ++i)
+        {
+            std::copy(newWeights.begin(), newWeights.end(), weights.begin()); // Should leave the bias alone
+        }
     }
 
     /**
@@ -112,20 +114,22 @@ public:
      */
     void setBias(const T* b)
     {
-        memcpy(bias.data(), b, Layer<T>::out_size);
+        for (int i = 0; i < Layer<T>::out_size; ++i)
+        {
+            weights[i][Layer<T>::in_size] = b[i]; // bias is the last element in each line
+        }
     }
 
     /** Returns the weights value at the given indices. */
     T getWeight(int i, int k) const noexcept { return weights[i][k]; }
 
     /** Returns the bias value at the given index. */
-    T getBias(int i) const noexcept { return bias[i]; }
+    T getBias(int i) const noexcept { return weights[i][Layer<T>::in_size]; }
 
 private:
     std::vector<std::vector<T>> weights;
-    std::vector<T> bias;
     std::vector<T> inVec;
-    std::vector<T> outVec;
+    AddMultiply<std::tuple<T, T>, T> addMultiply;
 };
 
 //====================================================
@@ -169,12 +173,12 @@ public:
         std::span outputSpan(outs, out_size);
 
         ranges::transform(ranges::views::zip(weights, ranges::views::repeat(inputSpan), bias), outputSpan.begin(),
-            [](auto els)
+            [this](auto els)
             {
                 return ranges::fold_right(
                     ranges::views::zip(std::get<0>(els), std::get<1>(els)),
                     std::get<2>(els),
-                    AddMultiply<T, std::tuple<T, T>>{});
+                    addMultiply);
             });
     }
 
@@ -216,6 +220,7 @@ public:
 private:
     mat_type weights;
     out_vec_type bias;
+    AddMultiply<std::tuple<T, T>, T> addMultiply;
 };
 
 }
